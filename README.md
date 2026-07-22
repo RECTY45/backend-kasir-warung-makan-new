@@ -147,23 +147,84 @@ npx prisma studio
 ```
 Buka browser di `http://localhost:5555` untuk mengelola data secara visual.
 
----
+### 🚀 Panduan Deployment Production (Backend)
 
-### 🚀 Mode Production
+Untuk menjalankan backend di lingkungan production (seperti VPS Linux / Windows Server), ikuti langkah-langkah berikut:
 
-1. **Build Aplikasi:**
-   ```bash
-   npm run build
-   ```
-2. **Buat Folder Upload:**
-   ```bash
-   mkdir -p uploads/menus uploads/promos
-   ```
-3. **Jalankan dengan PM2:**
-   ```bash
-   npm install -g pm2
-   pm2 start dist/main.js --name "rm-siantar-backend"
-   ```
+#### 1. Setup Environment Variables (`.env`)
+Pastikan file `.env` di server production menggunakan konfigurasi production, terutama database hosting dan JWT Secret yang kuat:
+```env
+PORT=3001
+DATABASE_URL="mysql://username_prod:password_prod@host_prod:3306/db_rm_siantar_minang"
+JWT_SECRET="isi_dengan_string_random_yang_sangat_panjang_dan_aman"
+```
+
+#### 2. Jalankan Build Project
+Build project NestJS menjadi file JavaScript yang telah dioptimasi di folder `/dist`:
+```bash
+npm run build
+```
+
+#### 3. Sinkronisasi Database (Prisma)
+Jalankan migrasi skema database ke database production Anda:
+```bash
+npx prisma generate
+npx prisma db push
+```
+*(Catatan: Jika Anda menggunakan prisma migrate, gunakan `npx prisma migrate deploy`)*
+
+#### 4. Siapkan Folder Uploads & Izin Akses
+Buat folder untuk menampung gambar menu dan banner promo yang diupload oleh admin, serta pastikan folder tersebut memiliki izin tulis (write permission):
+```bash
+mkdir -p uploads/menus uploads/promos
+```
+
+#### 5. Kelola Server Menggunakan PM2 (Process Manager)
+Gunakan PM2 agar aplikasi backend NestJS tetap berjalan di background dan otomatis restart jika server reboot atau aplikasi crash:
+
+```bash
+# Install PM2 secara global (jika belum)
+npm install -g pm2
+
+# Jalankan aplikasi NestJS menggunakan PM2
+pm2 start dist/main.js --name "rm-siantar-backend"
+
+# Simpan list proses PM2 agar otomatis berjalan saat OS startup
+pm2 save
+pm2 startup
+```
+
+Beberapa perintah PM2 yang berguna:
+```bash
+pm2 status                     # Melihat status aplikasi yang berjalan
+pm2 logs rm-siantar-backend    # Melihat log aktivitas secara real-time
+pm2 restart rm-siantar-backend # Restart aplikasi
+pm2 stop rm-siantar-backend    # Menghentikan aplikasi
+```
+
+#### 6. Konfigurasi Reverse Proxy Nginx (Opsional / Direkomendasikan)
+Agar API dapat diakses secara aman lewat port 80/443 (HTTP/HTTPS) dan mendukung SSL, gunakan Nginx sebagai reverse proxy. Contoh konfigurasi server block Nginx:
+```nginx
+server {
+    listen 80;
+    server_name api.rmsiantar.com;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+    
+    location /uploads/ {
+        alias /path/to/backend-kasir-warung-makan/uploads/;
+        access_log off;
+        expires max;
+    }
+}
+```
 
 ---
 

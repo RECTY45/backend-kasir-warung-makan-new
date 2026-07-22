@@ -9,12 +9,23 @@ import { seedMenus } from './seeders/MenuSeeder';
 import { seedPromos } from './seeders/PromoSeeder';
 import { seedActiveData } from './seeders/ActiveDataSeeder';
 
-const adapter = new PrismaMariaDb(process.env.DATABASE_URL as string);
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not defined');
+}
+const dbUrl = new URL(process.env.DATABASE_URL);
+const adapter = new PrismaMariaDb({
+  host: dbUrl.hostname,
+  port: Number(dbUrl.port) || 3306,
+  user: dbUrl.username,
+  password: decodeURIComponent(dbUrl.password),
+  database: dbUrl.pathname.replace(/^\//, ''),
+  connectionLimit: 5,
+});
 const prisma = new PrismaClient({ adapter });
 
 async function cleanDatabase() {
   console.log('🗑️ Cleaning database...');
-  
+
   // Delete in reverse order of dependencies
   await prisma.delivery.deleteMany();
   await prisma.payment.deleteMany();
@@ -38,7 +49,7 @@ async function cleanDatabase() {
 async function main() {
   try {
     console.log('🚀 Start seeding...');
-    
+
     await cleanDatabase();
 
     // Eksekusi seeder inti (Production & Development)
@@ -46,11 +57,9 @@ async function main() {
     await seedTables(prisma);
     await seedUsers(prisma);
 
-    // Filter seeder berdasarkan environment
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('📦 Development Mode: Seeding example menus...');
-      await seedMenus(prisma);
-    }
+    // Selalu jalankan seeder menu (baik Production maupun Development)
+    console.log('📦 Seeding menus...');
+    await seedMenus(prisma);
 
     await seedPromos(prisma);
 

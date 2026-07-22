@@ -1,0 +1,70 @@
+# Dependency directories
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment files (Private & Sensitive)
+.env
+.env.*
+!.env.example
+node_modules/
+package-lock.json
+
+# Runtime data & Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# WhatsApp Web Session Data (Private)
+.wwebjs_auth/
+.wwebjs_cache/
+.wwebjs_auth_sender/
+.wwebjs_auth_receiver/
+.baileys_auth_sender/
+.baileys_auth_receiver/
+
+# User Uploads (Menu images, etc.)
+uploads/
+/uploads/
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# Prisma generated
+/prisma/migrations/
+# Note: Usually migrations are kept in git, but if they contain sensitive data or 
+# are generated locally for testing, some people ignore them. 
+# However, for this project I'll keep migrations in git but ignore local SQLite DB if any.
+*.db
+*.db-journal
+
+# Testing
+/coverage
+/.nyc_output
+
+# Temporary files
+.tmp/
+temp/
+node_modules
+node_modules

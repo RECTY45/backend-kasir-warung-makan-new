@@ -1,0 +1,353 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id              BigInt           @id @default(autoincrement())
+  name            String           @db.VarChar(255)
+  email           String           @unique @db.VarChar(255)
+  password        String           @db.VarChar(255)
+  role            Role             @default(CUSTOMER)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  carts           Cart[]
+  deliveries      Delivery[]       @relation("DriverDeliveries")
+  notifications   Notification[]
+  orders          Order[]         
+  reviews         Review[]
+  reservations    Reservation[]
+  logHistories    LogHistory[]
+
+  @@map("users")
+}
+
+model Notification {
+  id             BigInt        @id @default(autoincrement())
+  userId         BigInt?       @map("user_id")
+  guestSessionId BigInt?       @map("guest_session_id")
+  title          String        @db.VarChar(255)
+  message        String        @db.Text
+  isRead         Boolean       @default(false) @map("is_read")
+  createdAt      DateTime      @default(now())
+  guestSession   GuestSession? @relation(fields: [guestSessionId], references: [id])
+  user           User?         @relation(fields: [userId], references: [id])
+
+  @@index([guestSessionId], map: "notifications_guest_session_id_fkey")
+  @@index([userId], map: "notifications_user_id_fkey")
+  @@map("notifications")
+}
+
+model Category {
+  id    BigInt @id @default(autoincrement())
+  name  String @db.VarChar(255)
+  menus Menu[]
+
+  @@map("categories")
+}
+
+model Menu {
+  id          BigInt      @id @default(autoincrement())
+  categoryId  BigInt      @map("category_id")
+  name        String      @db.VarChar(255)
+  price       Decimal     @db.Decimal(10, 2)
+  description String?     @db.Text
+  image       String?     @db.VarChar(255)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isAvailable Boolean     @default(true) @map("is_available")
+  isPopular   Boolean     @default(false) @map("is_popular")
+  cartItems   CartItem[]
+  category    Category    @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+
+  @@index([categoryId], map: "menus_category_id_fkey")
+  @@map("menus")
+}
+
+model Cart {
+  id             BigInt        @id @default(autoincrement())
+  userId         BigInt?       @map("user_id")
+  guestSessionId BigInt?       @map("guest_session_id")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  items          CartItem[]
+  guestSession   GuestSession? @relation(fields: [guestSessionId], references: [id])
+  user           User?         @relation(fields: [userId], references: [id])
+
+  @@index([guestSessionId], map: "carts_guest_session_id_fkey")
+  @@index([userId], map: "carts_user_id_fkey")
+  @@map("carts")
+}
+
+model CartItem {
+  id     BigInt @id @default(autoincrement())
+  cartId BigInt @map("cart_id")
+  menuId BigInt @map("menu_id")
+  qty    Int
+  cart   Cart   @relation(fields: [cartId], references: [id])
+  menu   Menu   @relation(fields: [menuId], references: [id])
+
+  @@index([cartId], map: "cart_items_cart_id_fkey")
+  @@index([menuId], map: "cart_items_menu_id_fkey")
+  @@map("cart_items")
+}
+
+model Order {
+  id             BigInt        @id @default(autoincrement())
+  userId         BigInt?       @map("user_id")
+  tableId        BigInt?       @map("table_id")
+  guestSessionId BigInt?       @map("guest_session_id")
+  orderSource    OrderSource   @map("order_source")
+  status         OrderStatus   @default(PENDING)
+  totalPrice     Decimal       @map("total_price") @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  address        String?       @db.Text
+  orderType      OrderType     @default(DINE_IN) @map("order_type")
+  isReceived     Boolean       @default(false) @map("is_received")
+  delivery       Delivery?
+  items          OrderItem[]
+  guestSession   GuestSession? @relation(fields: [guestSessionId], references: [id])
+  table          Table?        @relation(fields: [tableId], references: [id])
+  user           User?         @relation(fields: [userId], references: [id])
+  payments       Payment[]
+  reviews        Review?
+  reservation    Reservation?
+
+  @@index([guestSessionId], map: "orders_guest_session_id_fkey")
+  @@index([tableId], map: "orders_table_id_fkey")
+  @@index([userId], map: "orders_user_id_fkey")
+  @@map("orders")
+}
+
+model Review {
+  id        BigInt   @id @default(autoincrement())
+  orderId   BigInt   @unique @map("order_id")
+  userId    BigInt?  @map("user_id")
+  rating    Int      @db.TinyInt
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "reviews_user_id_fkey")
+  @@map("reviews")
+}
+
+model OrderItem {
+  id      BigInt  @id @default(autoincrement())
+  orderId BigInt  @map("order_id")
+  menuId  BigInt  @map("menu_id")
+  qty     Int
+  price   Decimal @db.Decimal(10, 2)
+  menu    Menu    @relation(fields: [menuId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id])
+
+  @@index([menuId], map: "order_items_menu_id_fkey")
+  @@index([orderId], map: "order_items_order_id_fkey")
+  @@map("order_items")
+}
+
+model Payment {
+  id      BigInt        @id @default(autoincrement())
+  orderId BigInt        @map("order_id")
+  method  PaymentMethod
+  status  PaymentStatus @default(UNPAID)
+  amount  Decimal       @db.Decimal(10, 2)
+  paidAt  DateTime?     @map("paid_at")
+  proof   String?       @db.VarChar(255)
+  order   Order         @relation(fields: [orderId], references: [id])
+
+  @@index([orderId], map: "payments_order_id_fkey")
+  @@map("payments")
+}
+
+
+model Table {
+  id            BigInt         @id @default(autoincrement())
+  name          String         @db.VarChar(255)
+  capacity      Int            @default(4)
+  qrCode        String?        @map("qr_code") @db.Text
+  status        TableStatus    @default(AKTIF)
+  guestSessions GuestSession[]
+  orders        Order[]
+  reservations  Reservation[]
+
+  @@map("tables")
+}
+
+model GuestSession {
+  id            BigInt         @id @default(autoincrement())
+  tableId       BigInt?        @map("table_id")
+  token         String         @unique @db.VarChar(255)
+  createdAt     DateTime       @default(now())
+  expiresAt     DateTime       @map("expires_at")
+  carts         Cart[]
+  table         Table?         @relation(fields: [tableId], references: [id])
+  notifications Notification[]
+  orders        Order[]
+
+  @@index([tableId], map: "guest_sessions_table_id_fkey")
+  @@map("guest_sessions")
+}
+
+
+
+model Voucher {
+  id        BigInt   @id @default(autoincrement())
+  code      String   @unique @db.VarChar(50)
+  discount  Decimal  @db.Decimal(10, 2)
+  expiredAt DateTime @map("expired_at")
+
+  @@map("vouchers")
+}
+
+model Promo {
+  id          BigInt   @id @default(autoincrement())
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  image       String?  @db.VarChar(255)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("promos")
+}
+
+model Delivery {
+  id        BigInt   @id @default(autoincrement())
+  orderId   BigInt   @unique @map("order_id")
+  driverId  BigInt?  @map("driver_id")
+  status    String   @default("preparing") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  driver    User?    @relation("DriverDeliveries", fields: [driverId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  @@index([driverId], map: "deliveries_driver_id_fkey")
+  @@map("deliveries")
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  CUSTOMER
+  KASIR
+  KITCHEN
+  DRIVER
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  COOKING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+}
+
+enum OrderSource {
+  APP
+  QR
+}
+
+enum DeliveryMethod {
+  DELIVERY
+  PICKUP
+}
+
+enum ReservationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+model Reservation {
+  id          BigInt             @id @default(autoincrement())
+  userId      BigInt?            @map("user_id")
+  name        String             @db.VarChar(255)
+  phone       String?            @db.VarChar(50)
+  date        DateTime
+  guestCount  Int                @map("guest_count")
+  status      ReservationStatus  @default(PENDING)
+  notes       String?            @db.Text
+  paymentType String?            @map("payment_type") @db.VarChar(50)
+  paymentProof String?           @map("payment_proof") @db.Text
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  user        User?              @relation(fields: [userId], references: [id])
+  tableId     BigInt?            @map("table_id")
+  orderId     BigInt?            @unique @map("order_id")
+  table       Table?             @relation(fields: [tableId], references: [id])
+  order       Order?             @relation(fields: [orderId], references: [id])
+
+  @@index([userId], map: "reservations_user_id_fkey")
+  @@index([tableId], map: "reservations_table_id_fkey")
+  @@map("reservations")
+}
+
+enum PaymentMethod {
+  CASH
+  EWALLET
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum TableStatus {
+  AKTIF
+  NONAKTIF
+}
+
+model SystemSetting {
+  id    Int    @id @default(autoincrement())
+  key   String @unique @db.VarChar(100)
+  value String @db.Text
+
+  @@map("system_settings")
+}
+
+model WhatsappLog {
+  id        BigInt   @id @default(autoincrement())
+  message   String   @db.Text
+  recipient String   @db.VarChar(50)
+  status    String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("whatsapp_logs")
+}
+
+model LogHistory {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt?  @map("user_id")
+  action    String   @db.VarChar(255)
+  module    String   @db.VarChar(100)
+  details   String?  @db.Text
+  type      LogType  @default(info)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("log_histories")
+}
+
+enum LogType {
+  info
+  warning
+  success
+  danger
+}

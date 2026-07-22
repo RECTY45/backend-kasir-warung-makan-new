@@ -68,8 +68,9 @@ export class WhatsappService implements OnModuleInit {
       }
 
       if (connection === 'close') {
-        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-        this.logger.warn(`WhatsApp Client (${type}) closed. Reconnecting: ${shouldReconnect}`);
+        const error = (lastDisconnect?.error as Boom);
+        const shouldReconnect = error?.output?.statusCode !== DisconnectReason.loggedOut;
+        this.logger.warn(`WhatsApp Client (${type}) closed. Reconnecting: ${shouldReconnect}. Reason: ${error?.message || error || 'Unknown'}`);
         
         if (type === 'sender') {
           this.senderState.isReady = false;
@@ -125,7 +126,7 @@ export class WhatsappService implements OnModuleInit {
   async sendMessage(to: string, message: string) {
     if (!this.senderState.isReady) {
       this.logger.warn('Cannot send message, Sender Bot not ready');
-      await this.logMessage(to, message, 'FAILED (Sender Not Ready)');
+      await this.logMessage(to, message, 'FAILED (Not Ready)');
       return false;
     }
 
@@ -138,7 +139,7 @@ export class WhatsappService implements OnModuleInit {
       return true;
     } catch (error) {
       this.logger.error(`Error sending message to ${to}`, error);
-      await this.logMessage(to, message, `FAILED (${error.message})`);
+      await this.logMessage(to, message, `FAILED: ${error.message}`);
       return false;
     }
   }
@@ -146,7 +147,7 @@ export class WhatsappService implements OnModuleInit {
   async sendImage(to: string, imagePath: string, caption: string) {
     if (!this.senderState.isReady) {
       this.logger.warn('Cannot send image, Sender Bot not ready');
-      await this.logMessage(to, `[Image] ${caption}`, 'FAILED (Sender Not Ready)');
+      await this.logMessage(to, `[Image] ${caption}`, 'FAILED (Not Ready)');
       return false;
     }
 
@@ -166,19 +167,20 @@ export class WhatsappService implements OnModuleInit {
       return true;
     } catch (error) {
       this.logger.error(`Error sending image to ${to}`, error);
-      await this.logMessage(to, `[Image] ${caption}`, `FAILED (${error.message})`);
+      await this.logMessage(to, `[Image] ${caption}`, `FAILED: ${error.message}`);
       return false;
     }
   }
 
-
   private async logMessage(recipient: string, message: string, status: string) {
     try {
+      // Truncate status to 20 characters to fit db column schema limit
+      const safeStatus = status.substring(0, 20);
       await this.prisma.whatsappLog.create({
         data: {
           recipient,
           message,
-          status,
+          status: safeStatus,
         }
       });
     } catch (err) {
